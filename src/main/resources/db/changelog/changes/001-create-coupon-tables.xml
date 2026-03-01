@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="001-1" author="swojcik">
+        <createTable tableName="coupon">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true"/>
+            </column>
+            <column name="code" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+            <column name="max_usages" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="current_usages" type="int" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="country_code" type="varchar(2)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="coupon" indexName="uq_coupon_code_upper" unique="true">
+            <column name="code" computed="true" valueComputed="UPPER(code)"/>
+        </createIndex>
+
+        <sql>
+            ALTER TABLE coupon ADD CONSTRAINT chk_max_usages_positive CHECK (max_usages > 0);
+            ALTER TABLE coupon ADD CONSTRAINT chk_current_usages_range CHECK (current_usages >= 0 AND current_usages &lt;= max_usages);
+        </sql>
+    </changeSet>
+
+    <changeSet id="001-2" author="swojcik">
+        <createTable tableName="coupon_usage">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true"/>
+            </column>
+            <column name="coupon_id" type="uuid">
+                <constraints nullable="false"
+                             foreignKeyName="fk_coupon_usage_coupon"
+                             references="coupon(id)"/>
+            </column>
+            <column name="user_id" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ip_address" type="varchar(45)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="used_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="coupon_usage"
+                             constraintName="uq_coupon_user"
+                             columnNames="coupon_id, user_id"/>
+
+        <createIndex tableName="coupon_usage" indexName="idx_coupon_usage_coupon_id">
+            <column name="coupon_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

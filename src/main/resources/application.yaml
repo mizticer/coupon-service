@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: coupon-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/coupon_db
+    username: coupon_user
+    password: coupon_pass
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  liquibase:
+    change-log: classpath:db/changelog/changelog-master.xml
+
+server:
+  forward-headers-strategy: native
+  port: 8080
+
+geolocation:
+  ip-api:
+    base-url: http://ip-api.com
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /api-docs
