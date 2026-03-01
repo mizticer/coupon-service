@@ -34,7 +34,6 @@ public class CouponRedemptionHandler {
         String userId = command.userId();
         String upperCode = code.toUpperCase();
 
-        // 1. Fallback: jesli nie ma w Redis, zaladuj z DB
         if (!couponRedisService.couponExists(upperCode)) {
             Coupon fallback = couponRepository.findByCodeIgnoreCase(code)
                     .orElseThrow(() -> new NotFoundException("Coupon not found: " + code));
@@ -46,7 +45,6 @@ public class CouponRedemptionHandler {
             );
         }
 
-        // 2. Walidacja kraju z Redis - zero DB query
         String couponCountry = couponRedisService.getCountryCode(upperCode)
                 .orElseThrow(() -> new NotFoundException("Coupon not found: " + code));
 
@@ -54,18 +52,15 @@ public class CouponRedemptionHandler {
             throw new CouponCountryMismatchException(couponCountry, userCountry);
         }
 
-        // 3. Atomowy DECR - sprawdz limit
         if (!couponRedisService.tryDecrement(upperCode)) {
             throw new CouponExhaustedException(code);
         }
 
-        // 4. Atomowy SADD - sprawdz duplikat usera
         if (!couponRedisService.tryAddUser(upperCode, userId)) {
             couponRedisService.rollbackDecrement(upperCode);
             throw new CouponAlreadyUsedByUserException(code, userId);
         }
 
-        // 5. Rollback Redis jesli DB commit sie nie powiedzie
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCompletion(int status) {
@@ -76,7 +71,6 @@ public class CouponRedemptionHandler {
             }
         });
 
-        // 6. Pobierz ID kuponu z Redis i zrob atomic UPDATE
         UUID couponId = couponRedisService.getCouponId(upperCode)
                 .orElseThrow(() -> new NotFoundException("Coupon not found: " + code));
 
@@ -85,12 +79,10 @@ public class CouponRedemptionHandler {
             throw new CouponExhaustedException(code);
         }
 
-        // 7. Zapisz usage - potrzebujemy encji Coupon jako FK
         Coupon coupon = couponRepository.getReferenceById(couponId);
         CouponUsage usage = new CouponUsage(coupon, userId, ipAddress);
         couponUsageRepository.save(usage);
 
-        // 8. Swiezy remaining z DB
         int remaining = couponRepository.getRemainingUsages(couponId);
         return couponMapper.toRedeemResponse(coupon, usage, remaining);
     }
